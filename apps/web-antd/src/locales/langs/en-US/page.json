@@ -5,5 +5,42 @@
   },
   "home": {
     "title": "Home"
+  },
+  "wms": {
+    "basic": {
+      "title": "Basic Data",
+      "materialCategory": "Material Category",
+      "material": "Material",
+      "supplier": "Supplier",
+      "customer": "Customer",
+      "unit": "Unit"
+    },
+    "warehouse": {
+      "title": "Warehouse",
+      "warehouse": "Warehouse",
+      "area": "Warehouse Area",
+      "location": "Location"
+    },
+    "inbound": {
+      "title": "Inbound",
+      "order": "Inbound Order"
+    },
+    "outbound": {
+      "title": "Outbound",
+      "order": "Outbound Order"
+    },
+    "stock": {
+      "title": "Stock",
+      "current": "Current Stock",
+      "transaction": "Stock Transaction"
+    },
+    "transfer": {
+      "title": "Transfer",
+      "order": "Transfer Order"
+    },
+    "check": {
+      "title": "Inventory Check",
+      "order": "Inventory Check"
+    }
   }
 }

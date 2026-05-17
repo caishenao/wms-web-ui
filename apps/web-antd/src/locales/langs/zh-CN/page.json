@@ -5,5 +5,42 @@
   },
   "home": {
     "title": "首页"
+  },
+  "wms": {
+    "basic": {
+      "title": "基础资料",
+      "materialCategory": "物料分类",
+      "material": "物料管理",
+      "supplier": "供应商管理",
+      "customer": "客户管理",
+      "unit": "单位管理"
+    },
+    "warehouse": {
+      "title": "仓库管理",
+      "warehouse": "仓库管理",
+      "area": "库区管理",
+      "location": "库位管理"
+    },
+    "inbound": {
+      "title": "入库管理",
+      "order": "入库单"
+    },
+    "outbound": {
+      "title": "出库管理",
+      "order": "出库单"
+    },
+    "stock": {
+      "title": "库存管理",
+      "current": "当前库存",
+      "transaction": "库存流水"
+    },
+    "transfer": {
+      "title": "调拨管理",
+      "order": "调拨单"
+    },
+    "check": {
+      "title": "盘点管理",
+      "order": "盘点任务"
+    }
   }
 }
