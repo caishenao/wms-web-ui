@@ -1,6 +1,4 @@
-/**
- * 该文件可自行根据业务逻辑进行调整
- */
+import type { InternalAxiosRequestConfig } from '@vben/request';
 import type { RequestClientOptions } from '@vben/request';
 
 import { useAppConfig } from '@vben/hooks';
@@ -12,6 +10,7 @@ import {
   RequestClient,
 } from '@vben/request';
 import { useAccessStore } from '@vben/stores';
+import { decryptHttpPayload, encryptHttpPayload } from '@vben/utils';
 
 import { message } from 'ant-design-vue';
 
@@ -19,7 +18,10 @@ import { useAuthStore } from '#/store';
 
 import { refreshTokenApi } from './core';
 
-const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
+const { apiURL, encryption } = useAppConfig(
+  import.meta.env,
+  import.meta.env.PROD,
+);
 
 function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   const client = new RequestClient({
@@ -27,14 +29,12 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     baseURL,
   });
 
-  /**
-   * 重新认证逻辑
-   */
   async function doReAuthenticate() {
-    console.warn('Access token or refresh token is invalid or expired. ');
+    console.warn('Access token or refresh token is invalid or expired.');
     const accessStore = useAccessStore();
     const authStore = useAuthStore();
     accessStore.setAccessToken(null);
+
     if (
       preferences.app.loginExpiredMode === 'modal' &&
       accessStore.isAccessChecked
@@ -45,9 +45,6 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     }
   }
 
-  /**
-   * 刷新token逻辑
-   */
   async function doRefreshToken() {
     const accessStore = useAccessStore();
     const resp = await refreshTokenApi();
@@ -60,18 +57,93 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     return token ? `Bearer ${token}` : null;
   }
 
-  // 请求头处理
+  function isEncryptableMethod(method?: string) {
+    return ['POST', 'PUT', 'PATCH'].includes(method?.toUpperCase() ?? '');
+  }
+
+  function isUnsupportedEncryptedPayload(data: unknown) {
+    return (
+      (typeof FormData !== 'undefined' && data instanceof FormData) ||
+      (typeof Blob !== 'undefined' && data instanceof Blob) ||
+      data instanceof ArrayBuffer ||
+      data instanceof URLSearchParams
+    );
+  }
+
+  function setHeader(
+    config: InternalAxiosRequestConfig,
+    key: string,
+    value: string,
+  ) {
+    config.headers.set?.(key, value);
+    if (!config.headers.has?.(key)) {
+      config.headers[key] = value;
+    }
+  }
+
+  function getHeader(headers: any, key: string) {
+    return (
+      headers?.get?.(key) ?? headers?.[key] ?? headers?.[key.toLowerCase()]
+    );
+  }
+
   client.addRequestInterceptor({
     fulfilled: async (config) => {
       const accessStore = useAccessStore();
+      const authorization = formatToken(accessStore.accessToken);
 
-      config.headers.Authorization = formatToken(accessStore.accessToken);
-      config.headers['Accept-Language'] = preferences.app.locale;
+      if (authorization) {
+        setHeader(config, 'Authorization', authorization);
+      }
+      setHeader(config, 'Accept-Language', preferences.app.locale);
+
+      if (
+        encryption.enabled &&
+        config.encrypt &&
+        isEncryptableMethod(config.method)
+      ) {
+        if (!encryption.rsaPublicKey) {
+          throw new Error(
+            'VITE_GLOB_RSA_PUBLIC_KEY is required for encryption.',
+          );
+        }
+        if (isUnsupportedEncryptedPayload(config.data)) {
+          throw new Error(
+            'Encrypted requests only support JSON-compatible or string bodies.',
+          );
+        }
+
+        const { data, encryptedKey } = encryptHttpPayload(config.data, {
+          publicKey: encryption.rsaPublicKey,
+        });
+        config.data = data;
+        config.transformRequest = (requestData) => requestData;
+        setHeader(config, encryption.headerKey, encryptedKey);
+        setHeader(config, 'Content-Type', 'application/json;charset=utf-8');
+      }
+
       return config;
     },
   });
 
-  // 处理返回的响应数据格式
+  client.addResponseInterceptor({
+    fulfilled: (response) => {
+      const encryptedKey = getHeader(response.headers, encryption.headerKey);
+      if (encryptedKey) {
+        if (!encryption.rsaPrivateKey || !encryption.rsaPublicKey) {
+          throw new Error(
+            'RSA public/private keys are required to decrypt data.',
+          );
+        }
+        response.data = decryptHttpPayload(response.data, encryptedKey, {
+          privateKey: encryption.rsaPrivateKey,
+          publicKey: encryption.rsaPublicKey,
+        });
+      }
+      return response;
+    },
+  });
+
   client.addResponseInterceptor(
     defaultResponseInterceptor({
       codeField: 'code',
@@ -80,7 +152,6 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     }),
   );
 
-  // token过期的处理
   client.addResponseInterceptor(
     authenticateResponseInterceptor({
       client,
@@ -91,14 +162,10 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     }),
   );
 
-  // 通用的错误处理,如果没有进入上面的错误处理逻辑，就会进入这里
   client.addResponseInterceptor(
     errorMessageResponseInterceptor((msg: string, error) => {
-      // 这里可以根据业务进行定制,你可以拿到 error 内的信息进行定制化处理，根据不同的 code 做不同的提示，而不是直接使用 message.error 提示 msg
-      // 当前mock接口返回的错误字段是 error 或者 message
       const responseData = error?.response?.data ?? {};
       const errorMessage = responseData?.error ?? responseData?.message ?? '';
-      // 如果没有错误信息，则会根据状态码进行提示
       message.error(errorMessage || msg);
     }),
   );

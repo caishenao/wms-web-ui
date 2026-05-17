@@ -18,7 +18,18 @@ interface WebAntdPreferencesExtension {
 export const overridesPreferences = defineOverridesPreferences({
   // overrides
   app: {
+    authPageLayout: 'panel-center',
+    defaultHomePath: '/home',
     name: import.meta.env.VITE_APP_TITLE,
+  },
+  copyright: {
+    companyName: '',
+    enable: false,
+  },
+  logo: {
+    enable: false,
+    source: '',
+    sourceDark: '',
   },
 });
 

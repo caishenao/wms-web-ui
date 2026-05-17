@@ -7,6 +7,10 @@ import type {
 
 type ExtendOptions<T = any> = {
   /**
+   * Encrypt a JSON/string request body when the app encryption switch is enabled.
+   */
+  encrypt?: boolean;
+  /**
    * 参数序列化方式。预置的有
    * - brackets: ids[]=1&ids[]=2&ids[]=3
    * - comma: ids=1,2,3

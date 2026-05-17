@@ -11,6 +11,14 @@ interface UserInfo extends BasicUserInfo {
    */
   homePath: string;
 
+  email?: string;
+
+  groups?: string[];
+
+  organization?: string;
+
+  phone?: string;
+
   /**
    * accessToken
    */
