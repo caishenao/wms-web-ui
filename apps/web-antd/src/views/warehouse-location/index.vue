@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Page } from '@vben/common-ui';
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -97,10 +97,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
   },
 });
 
-const showModal = ref(false);
-const editingId = ref<number | null>(null);
-const isEdit = ref(false);
-
 const [Form, formApi] = useVbenForm({
   schema: [
     {
@@ -145,35 +141,43 @@ const [Form, formApi] = useVbenForm({
     { component: 'Textarea', fieldName: 'remark', label: '备注' },
   ],
   handleSubmit: async (values) => {
+    const data = drawerApi.getData<{ isEdit?: boolean; editingId?: number }>();
     try {
-      if (isEdit.value && editingId.value) {
-        await updateWarehouseLocationApi(editingId.value, values);
+      if (data.isEdit && data.editingId) {
+        await updateWarehouseLocationApi(data.editingId, values);
         message.success('修改成功');
       } else {
         await createWarehouseLocationApi(values);
         message.success('新增成功');
       }
-      showModal.value = false;
+      drawerApi.close();
       gridApi.query();
     } catch {
       message.error('操作失败');
     }
   },
-  showDefaultActions: true,
+  showDefaultActions: false,
+});
+
+const [Drawer, drawerApi] = useVbenDrawer({
+  async onConfirm() {
+    await formApi.submitForm();
+  },
+  onCancel() {
+    drawerApi.close();
+  },
 });
 
 function handleAdd() {
-  isEdit.value = false;
-  editingId.value = null;
   formApi.resetForm();
-  showModal.value = true;
+  drawerApi.setData({ isEdit: false, editingId: null });
+  drawerApi.open();
 }
 
 function handleEdit(record: any) {
-  isEdit.value = true;
-  editingId.value = record.id;
   formApi.setValues(record);
-  showModal.value = true;
+  drawerApi.setData({ isEdit: true, editingId: record.id });
+  drawerApi.open();
 }
 
 function handleDelete(record: any) {
@@ -200,12 +204,8 @@ function handleDelete(record: any) {
         <a-button type="link" danger @click="handleDelete(row)">删除</a-button>
       </template>
     </Grid>
-    <a-modal
-      v-model:open="showModal"
-      :title="isEdit ? '编辑库位' : '新增库位'"
-      width="600px"
-    >
+    <Drawer cancel-text="取消" confirm-text="确定" title="库位信息">
       <Form />
-    </a-modal>
+    </Drawer>
   </Page>
 </template>

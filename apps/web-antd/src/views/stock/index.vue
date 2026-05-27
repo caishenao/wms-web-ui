@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { Page } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
+import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   getStockListApi,
@@ -56,29 +55,36 @@ const [Grid, gridApi] = useVbenVxeGrid({
   },
 });
 
-const freezeModal = ref(false);
 const freezeId = ref<number | null>(null);
 const freezeQty = ref(0);
+
+const [FreezeDrawer, freezeDrawerApi] = useVbenDrawer({
+  async onConfirm() {
+    if (freezeQty.value <= 0) {
+      message.warning('请输入有效的冻结数量');
+      return;
+    }
+    try {
+      freezeDrawerApi.lock();
+      await freezeStockApi(freezeId.value!, { qty: freezeQty.value });
+      message.success('冻结成功');
+      freezeDrawerApi.close();
+      gridApi.query();
+    } catch {
+      message.error('冻结失败');
+    } finally {
+      freezeDrawerApi.unlock();
+    }
+  },
+  onCancel() {
+    freezeDrawerApi.close();
+  },
+});
 
 function handleFreeze(record: any) {
   freezeId.value = record.id;
   freezeQty.value = 0;
-  freezeModal.value = true;
-}
-
-async function confirmFreeze() {
-  if (freezeQty.value <= 0) {
-    message.warning('请输入有效的冻结数量');
-    return;
-  }
-  try {
-    await freezeStockApi(freezeId.value!, { qty: freezeQty.value });
-    message.success('冻结成功');
-    freezeModal.value = false;
-    gridApi.query();
-  } catch {
-    message.error('冻结失败');
-  }
+  freezeDrawerApi.open();
 }
 
 function handleUnfreeze(record: any) {
@@ -107,20 +113,16 @@ function handleUnfreeze(record: any) {
         >
       </template>
     </Grid>
-    <a-modal
-      v-model:open="freezeModal"
-      title="冻结库存"
-      width="400px"
-      @ok="confirmFreeze"
-    >
-      <div class="p-4">
+    <FreezeDrawer cancel-text="取消" confirm-text="确定" title="冻结库存">
+      <div class="px-4 py-2">
+        <div class="mb-2 text-sm text-gray-500">请输入冻结数量</div>
         <a-input-number
           v-model:value="freezeQty"
           :min="0"
-          placeholder="请输入冻结数量"
+          placeholder="冻结数量"
           style="width: 100%"
         />
       </div>
-    </a-modal>
+    </FreezeDrawer>
   </Page>
 </template>
